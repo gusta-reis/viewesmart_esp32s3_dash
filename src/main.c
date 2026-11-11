@@ -64,19 +64,28 @@ static const uint16_t s_shift_rpm_limits[SHIFT_LEDS_COUNT] = {
 
 static void update_physical_ws2812_leds(uint16_t rpm, uint32_t now_ms)
 {
+	static uint32_t last_led_update_ms;
+
 	if (strip_dev == NULL || !device_is_ready(strip_dev)) {
 		return;
 	}
 
+	/* Taxa de atualizacao estavel e suave para os LEDs WS2812D (~33 Hz / 30 ms).
+	 * Garante intervalo ocioso e tempo de latch/reset (> 280 us) impecaveis entre frames */
+	if ((now_ms - last_led_update_ms) < 30U) {
+		return;
+	}
+	last_led_update_ms = now_ms;
+
 	/* 1. LEDs Superiores 0..14 (Shift Lights) */
 	if (rpm >= SHIFT_BLINK_RPM) {
-		/* Limiar de troca: todas as 15 piscam em azul (~8 Hz) */
-		bool blue_on = ((now_ms / 60U) % 2U) == 0;
+		/* Limiar de troca: todas as 15 piscam em azul (~6 Hz) */
+		bool blue_on = ((now_ms / 80U) % 2U) == 0;
 
 		for (int i = 0; i < PHYSICAL_LEDS_TOP; i++) {
 			strip_pixels[i].r = 0;
 			strip_pixels[i].g = 0;
-			strip_pixels[i].b = blue_on ? 255 : 0;
+			strip_pixels[i].b = blue_on ? 150 : 0;
 		}
 	} else {
 		for (int i = 0; i < PHYSICAL_LEDS_TOP; i++) {
@@ -85,18 +94,18 @@ static void update_physical_ws2812_leds(uint16_t rpm, uint32_t now_ms)
 			if (i < 5) {
 				/* 5 Verdes */
 				strip_pixels[i].r = 0;
-				strip_pixels[i].g = on ? 220 : 0;
+				strip_pixels[i].g = on ? 130 : 0;
 				strip_pixels[i].b = 0;
 			} else if (i < 10) {
 				/* 5 Vermelhos */
-				strip_pixels[i].r = on ? 240 : 0;
+				strip_pixels[i].r = on ? 150 : 0;
 				strip_pixels[i].g = 0;
 				strip_pixels[i].b = 0;
 			} else {
 				/* 5 Roxos */
-				strip_pixels[i].r = on ? 160 : 0;
+				strip_pixels[i].r = on ? 90 : 0;
 				strip_pixels[i].g = 0;
-				strip_pixels[i].b = on ? 240 : 0;
+				strip_pixels[i].b = on ? 140 : 0;
 			}
 		}
 	}
@@ -105,7 +114,8 @@ static void update_physical_ws2812_leds(uint16_t rpm, uint32_t now_ms)
 	/* 15..17: Lateral Direita (baixo -> cima), 18..20: Lateral Esquerda (baixo -> cima) */
 	uint32_t phase = now_ms % 2000U;
 	uint32_t ramp = (phase < 1000U) ? phase : (2000U - phase); /* 0 a 1000 */
-	uint8_t green_fade = (uint8_t)((ramp * ramp * 255ULL) / (1000ULL * 1000ULL));
+	/* Curva quadratica suave com brilho maximo calibrado (120 de 255) */
+	uint8_t green_fade = (uint8_t)((ramp * ramp * 120ULL) / (1000ULL * 1000ULL));
 
 	for (int i = PHYSICAL_LEDS_TOP; i < PHYSICAL_LEDS_TOTAL; i++) {
 		strip_pixels[i].r = 0;
@@ -168,9 +178,8 @@ static void update_dashboard_ui(const struct senna_telemetry_sample *sample, uin
 		lv_obj_set_style_bg_color(rpm_bar, lv_color_hex(0x0284C7), LV_PART_INDICATOR);
 	}
 
-	/* 3. Shift LEDs na tela e LEDs fisicos WS2812D */
+	/* 3. Shift LEDs na tela */
 	update_shift_leds(sample->rpm, now_ms);
-	update_physical_ws2812_leds(sample->rpm, now_ms);
 
 	/* 4. Tempo de volta cronometrado */
 	uint32_t t = sample->time_ms;
