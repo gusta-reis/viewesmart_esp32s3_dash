@@ -7,9 +7,9 @@
 #include "senna_telemetry.h"
 
 /* Variaveis globais de telemetria */
-volatile uint32_t g_senna_telemetry_rpm = 13950U;
-volatile uint32_t g_senna_telemetry_speed_kmh = 288U;
-volatile uint8_t  g_senna_telemetry_gear = 6U;
+volatile uint32_t g_senna_telemetry_rpm = 0U;
+volatile uint32_t g_senna_telemetry_speed_kmh = 0U;
+volatile uint8_t  g_senna_telemetry_gear = 0U;
 volatile uint32_t g_senna_telemetry_time_ms = 0U;
 volatile bool     g_senna_telemetry_active = false;
 
