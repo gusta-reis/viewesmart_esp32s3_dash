@@ -10,4 +10,5 @@ project(viewesmart_esp32s3_dash)
 
 target_sources(app PRIVATE
 	src/main.c
+	src/senna_telemetry.c
 )
