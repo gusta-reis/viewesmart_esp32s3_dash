@@ -1,0 +1,207 @@
+/*
+ * Copyright (c) 2024-2026 Espressif Systems (Shanghai) Co., Ltd.
+ * Copyright (c) 2026 VIEWE Display Co., Ltd.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+
+#include <espressif/esp32s3/esp32s3.dtsi>
+#include <espressif/partitions_0x0_amp_16M.dtsi>
+#include <zephyr/dt-bindings/display/panel.h>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+#include <zephyr/dt-bindings/led/led.h>
+#include <zephyr/dt-bindings/led/worldsemi_ws2812c.h>
+#include "uedx48270043e_wb_a-pinctrl.dtsi"
+
+/ {
+	model = "VIEWE UEDX48270043E-WB-A PROCPU";
+	compatible = "viewe,uedx48270043e_wb_a", "espressif,esp32s3";
+
+	chosen {
+		zephyr,sram = &sram1;
+		zephyr,console = &uart0;
+		zephyr,shell-uart = &uart0;
+		zephyr,flash = &flash0;
+		zephyr,code-partition = &slot0_partition;
+		zephyr,bt-hci = &esp32_bt_hci;
+		zephyr,display = &lcd_rgb;
+		zephyr,touch = &gt911;
+	};
+
+	aliases {
+		i2c-0 = &i2c0;
+		uart-0 = &uart0;
+		sw0 = &button0;
+		watchdog0 = &wdt0;
+		sdhc0 = &sdhc0;
+		led-strip = &rgb_led;
+	};
+
+	buttons {
+		compatible = "gpio-keys";
+		debounce-interval-ms = <10>;
+
+		button0: button_0 {
+			gpios = <&gpio0 0 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			label = "BOOT Button";
+			zephyr,code = <INPUT_KEY_0>;
+		};
+	};
+};
+
+&flash0 {
+	reg = <0x0 DT_SIZE_M(16)>;
+	ranges = <0x0 0x0 DT_SIZE_M(16)>;
+};
+
+&psram0 {
+	size = <DT_SIZE_M(8)>;
+};
+
+&dma {
+	status = "okay";
+};
+
+&gpio0 {
+	status = "okay";
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+&uart0 {
+	status = "okay";
+	current-speed = <115200>;
+	pinctrl-0 = <&uart0_default>;
+	pinctrl-names = "default";
+};
+
+&i2c0 {
+	status = "okay";
+	clock-frequency = <I2C_BITRATE_FAST>;
+	pinctrl-0 = <&i2c0_default>;
+	pinctrl-names = "default";
+
+	gt911: gt911@5d {
+		compatible = "goodix,gt911";
+		reg = <0x5d>;
+		alt-addr = <0x14>;
+		reset-gpios = <&gpio1 6 GPIO_ACTIVE_LOW>; /* GPIO38 */
+		screen-width = <480>;
+		screen-height = <272>;
+	};
+};
+
+&lcd_cam {
+	status = "okay";
+	pinctrl-0 = <&lcd_cam_default>;
+	pinctrl-names = "default";
+
+	lcd_rgb: lcd-rgb {
+		compatible = "espressif,esp32-lcd-cam-rgb";
+		status = "okay";
+		width = <480>;
+		height = <272>;
+		pixel-format = <PANEL_PIXEL_FORMAT_RGB_565>;
+		data-bus-width = <16>;
+		backlight-gpios = <&gpio0 2 GPIO_ACTIVE_HIGH>; /* GPIO2 LP3321B6F EN */
+
+		display-timings {
+			compatible = "zephyr,panel-timing";
+			clock-frequency = <12000000>;
+			hsync-len = <1>;
+			hback-porch = <42>;
+			hfront-porch = <20>;
+			vsync-len = <10>;
+			vback-porch = <12>;
+			vfront-porch = <4>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+			pixelclk-active = <1>;
+		};
+	};
+};
+
+&spi2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	pinctrl-0 = <&spim2_default>;
+	pinctrl-names = "default";
+	cs-gpios = <&gpio0 10 GPIO_ACTIVE_LOW>; /* GPIO10 MicroSD CS */
+
+	sdhc_spi: sdhc@0 {
+		compatible = "zephyr,sdhc-spi-slot";
+		reg = <0>;
+		status = "okay";
+		spi-max-frequency = <DT_FREQ_M(20)>;
+
+		mmc {
+			compatible = "zephyr,sdmmc-disk";
+			disk-name = "SD";
+			status = "okay";
+		};
+	};
+};
+
+/*
+ * Note: GPIO0 is shared between the BOOT button (K1) and WS2812B RGB LED (D5).
+ * spi3 is kept disabled by default so button0 on GPIO0 can be used as an input;
+ * enable &spi3 in an application overlay when driving the WS2812B LED.
+ */
+&spi3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "disabled";
+	line-idle-low;
+	pinctrl-0 = <&spim3_ws2812_led>;
+	pinctrl-names = "default";
+
+	rgb_led: ws2812@0 {
+		compatible = "worldsemi,ws2812-spi";
+		reg = <0>;
+		spi-max-frequency = <WS2812C_SPI_FREQ>;
+		chain-length = <1>;
+		color-mapping = <LED_COLOR_ID_GREEN>,
+				<LED_COLOR_ID_RED>,
+				<LED_COLOR_ID_BLUE>;
+		spi-one-frame = <WS2812C_ONE_FRAME>;
+		spi-zero-frame = <WS2812C_ZERO_FRAME>;
+	};
+};
+
+&timer0 {
+	status = "disabled";
+};
+
+&timer1 {
+	status = "disabled";
+};
+
+&timer2 {
+	status = "disabled";
+};
+
+&timer3 {
+	status = "disabled";
+};
+
+&wdt0 {
+	status = "okay";
+};
+
+&trng0 {
+	status = "okay";
+};
+
+&esp32_bt_hci {
+	status = "okay";
+};
+
+&wifi {
+	status = "okay";
+};

@@ -1,0 +1,18 @@
+identifier: uedx80480043e_wb_a/esp32s3/procpu
+name: VIEWE UEDX80480043E-WB-A 4.3-inch 800x480 Touch Display PROCPU
+type: mcu
+arch: xtensa
+toolchain:
+  - zephyr
+supported:
+  - gpio
+  - uart
+  - i2c
+  - spi
+  - dma
+  - display
+  - input
+  - watchdog
+  - entropy
+  - pwm
+vendor: viewe

@@ -1,0 +1,4 @@
+name: viewesmart_esp32s3_dash
+build:
+  settings:
+    board_root: .

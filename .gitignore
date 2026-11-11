@@ -1,0 +1,24 @@
+# Repositório público original clonado usado apenas como base de referência
+UEDX48270043E-ESP32-4.3inch-Touch-Display/
+*.mp4
+
+# Modificações e patches do driver upstream do Zephyr (mantidos offline nesta fase)
+zephyr_upstream/
+
+# Diretórios de build do Zephyr / CMake
+build/
+twister-out*/
+
+# Arquivos de ambiente e IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/

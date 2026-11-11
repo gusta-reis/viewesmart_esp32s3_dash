@@ -1,0 +1,32 @@
+# Copyright (c) 2024 Espressif Systems (Shanghai) Co., Ltd.
+# Copyright (c) 2026 VIEWE Display Co., Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
+if BOARD_UEDX48270043E_WB_A_ESP32S3_PROCPU
+
+config ESP_SPIRAM
+	default y
+
+choice SPIRAM_MODE
+	default SPIRAM_MODE_OCT
+endchoice
+
+choice SPIRAM_SPEED
+	default SPIRAM_SPEED_80M
+endchoice
+
+choice ESP32S3_DATA_CACHE_SIZE
+	default ESP32S3_DATA_CACHE_64KB
+endchoice
+
+choice ESP32S3_DATA_CACHE_LINE_SIZE
+	default ESP32S3_DATA_CACHE_LINE_64B
+endchoice
+
+config ESP_SPIRAM_HEAP_SIZE
+	default 4194304 if ESP_SPIRAM
+
+config DISPLAY_ESP32_LCD_CAM_RGB_BOUNCE_BUFFER_LINES
+	default 17 if DISPLAY_ESP32_LCD_CAM_RGB
+
+endif # BOARD_UEDX48270043E_WB_A_ESP32S3_PROCPU

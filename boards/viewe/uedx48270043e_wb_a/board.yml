@@ -1,0 +1,6 @@
+board:
+  name: uedx48270043e_wb_a
+  full_name: VIEWE UEDX48270043E-WB-A 4.3-inch 480x272 Touch Display
+  vendor: viewe
+  socs:
+    - name: esp32s3

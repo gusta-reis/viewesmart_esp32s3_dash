@@ -1,0 +1,6 @@
+board:
+  name: uedx80480043e_wb_a
+  full_name: VIEWE UEDX80480043E-WB-A 4.3-inch 800x480 Touch Display
+  vendor: viewe
+  socs:
+    - name: esp32s3

@@ -1,0 +1,169 @@
+/*
+ * Copyright (c) 2026 VIEWE Display Co., Ltd.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+
+#include <espressif/esp32s3/esp32s3_wroom_n16r8.dtsi>
+#include <espressif/partitions_0x0_amp_16M.dtsi>
+#include <zephyr/dt-bindings/display/panel.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+#include "uedx80480043e_wb_a-pinctrl.dtsi"
+
+/ {
+	model = "VIEWE UEDX80480043E-WB-A PROCPU";
+	compatible = "viewe,uedx80480043e-wb-a", "espressif,esp32s3";
+
+	aliases {
+		i2c-0 = &i2c0;
+		sw0 = &button0;
+		uart-0 = &uart0;
+		watchdog0 = &wdt0;
+	};
+
+	chosen {
+		zephyr,sram = &sram1;
+		zephyr,console = &uart0;
+		zephyr,shell-uart = &uart0;
+		zephyr,flash = &flash0;
+		zephyr,code-partition = &slot0_partition;
+		zephyr,bt-hci = &esp32_bt_hci;
+		zephyr,display = &lcd_rgb;
+		zephyr,touch = &gt911;
+	};
+
+	buttons {
+		compatible = "gpio-keys";
+
+		button0: button_0 {
+			gpios = <&gpio0 0 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			label = "BOOT Button";
+			zephyr,code = <INPUT_KEY_0>;
+		};
+	};
+
+	lvgl_pointer: lvgl-pointer {
+		compatible = "zephyr,lvgl-pointer-input";
+		input = <&gt911>;
+	};
+};
+
+&uart0 {
+	status = "okay";
+	current-speed = <115200>;
+	pinctrl-0 = <&uart0_default>;
+	pinctrl-names = "default";
+};
+
+&gpio0 {
+	status = "okay";
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+&i2c0 {
+	status = "okay";
+	clock-frequency = <I2C_BITRATE_FAST>;
+	pinctrl-0 = <&i2c0_default>;
+	pinctrl-names = "default";
+
+	/*
+	 * Goodix GT911 Capacitive Touch Controller (J5):
+	 * - SDA = GPIO19, SCL = GPIO20 (4.7k pull-ups R8/R9 on PCB)
+	 * - RST = GPIO38 (&gpio1 6, active low)
+	 * - INT = GPIO18 via R33 (NC/0R unpopulated by default on PCB).
+	 *   We omit irq-gpios so Zephyr's goodix,gt911 driver operates in
+	 *   periodic polling mode (CONFIG_INPUT_GT911_PERIOD_MS) without
+	 *   requiring a hardware solder bridge on R33.
+	 */
+	gt911: gt911@5d {
+		compatible = "goodix,gt911";
+		reg = <0x5d>;
+		alt-addr = <0x14>;
+		reset-gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;
+	};
+};
+
+&spi2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	pinctrl-0 = <&spim2_default>;
+	pinctrl-names = "default";
+	cs-gpios = <&gpio0 10 GPIO_ACTIVE_LOW>;
+
+	sdhc_spi: sdhc@0 {
+		compatible = "zephyr,sdhc-spi-slot";
+		reg = <0>;
+		spi-max-frequency = <20000000>;
+
+		mmc {
+			compatible = "zephyr,sdmmc-disk";
+			disk-name = "SD";
+			status = "disabled";
+		};
+	};
+};
+
+&dma {
+	status = "okay";
+};
+
+&lcd_cam {
+	status = "okay";
+	pinctrl-0 = <&lcd_cam_default>;
+	pinctrl-names = "default";
+	dmas = <&dma 1>;
+	dma-names = "tx";
+
+	/*
+	 * 4.3" 800x480 RGB565 Parallel TFT Panel (Sitronix ST7262):
+	 * - Backlight enable on GPIO2 (LP3321B6F boost driver, active high)
+	 * - Pure RGB parallel dot-clock mode (DISP tied to 3.3V on PCB)
+	 */
+	lcd_rgb: lcd-rgb {
+		compatible = "espressif,esp32-lcd-cam-rgb";
+		width = <800>;
+		height = <480>;
+		pixel-format = <PANEL_PIXEL_FORMAT_RGB_565>;
+		data-bus-width = <16>;
+		backlight-gpios = <&gpio0 2 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+
+		display-timings {
+			compatible = "zephyr,panel-timing";
+			clock-frequency = <16000000>;
+			hsync-len = <4>;
+			hback-porch = <8>;
+			hfront-porch = <8>;
+			vsync-len = <4>;
+			vback-porch = <8>;
+			vfront-porch = <8>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+			pixelclk-active = <1>;
+		};
+	};
+};
+
+&wdt0 {
+	status = "okay";
+};
+
+&trng0 {
+	status = "okay";
+};
+
+&esp32_bt_hci {
+	status = "okay";
+};
+
+&wifi {
+	status = "okay";
+};
