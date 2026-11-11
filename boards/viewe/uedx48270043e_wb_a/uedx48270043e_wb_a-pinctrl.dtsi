@@ -46,7 +46,7 @@
 
 	spim3_ws2812_led: spim3_ws2812_led {
 		group1 {
-			pinmux = <SPIM3_MOSI_GPIO0>;
+			pinmux = <SPIM3_MOSI_GPIO17>;
 			output-low;
 		};
 	};

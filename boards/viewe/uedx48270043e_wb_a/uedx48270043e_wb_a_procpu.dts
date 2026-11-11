@@ -149,14 +149,15 @@
 };
 
 /*
- * Note: GPIO0 is shared between the BOOT button (K1) and WS2812B RGB LED (D5).
- * spi3 is kept disabled by default so button0 on GPIO0 can be used as an input;
- * enable &spi3 in an application overlay when driving the WS2812B LED.
+ * Barra de LEDs endereçaveis WS2812D (Total: 21 LEDs) via SPI3 MOSI em GPIO17:
+ * - LEDs 0..14 (15 LEDs): Barra Superior (Shift lights F1 da esquerda para a direita)
+ * - LEDs 15..17 (3 LEDs): Lateral Direita (de baixo para cima)
+ * - LEDs 18..20 (3 LEDs): Lateral Esquerda (de baixo para cima)
  */
 &spi3 {
 	#address-cells = <1>;
 	#size-cells = <0>;
-	status = "disabled";
+	status = "okay";
 	line-idle-low;
 	pinctrl-0 = <&spim3_ws2812_led>;
 	pinctrl-names = "default";
@@ -165,7 +166,7 @@
 		compatible = "worldsemi,ws2812-spi";
 		reg = <0>;
 		spi-max-frequency = <WS2812C_SPI_FREQ>;
-		chain-length = <1>;
+		chain-length = <21>;
 		color-mapping = <LED_COLOR_ID_GREEN>,
 				<LED_COLOR_ID_RED>,
 				<LED_COLOR_ID_BLUE>;

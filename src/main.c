@@ -7,6 +7,7 @@
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/drivers/display.h>
+#include <zephyr/drivers/led_strip.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <lvgl.h>
@@ -16,6 +17,15 @@
 LOG_MODULE_REGISTER(app, LOG_LEVEL_INF);
 
 #define SHIFT_LEDS_COUNT 15
+
+/* LEDs Fisicos Enderecaveis WS2812D (Total: 21) */
+#define PHYSICAL_LEDS_TOTAL  21
+#define PHYSICAL_LEDS_TOP    15
+#define PHYSICAL_LEDS_SIDE   3
+#define SHIFT_BLINK_RPM      14400U
+
+static const struct device *strip_dev = DEVICE_DT_GET_OR_NULL(DT_ALIAS(led_strip));
+static struct led_rgb strip_pixels[PHYSICAL_LEDS_TOTAL];
 
 /* Elementos visuais da UI */
 static lv_obj_t *shift_leds[SHIFT_LEDS_COUNT];
@@ -52,31 +62,95 @@ static const uint16_t s_shift_rpm_limits[SHIFT_LEDS_COUNT] = {
 	14100, 14250, 14380, 14450, 14500  /* 5 Roxos / Shift point */
 };
 
-static void update_shift_leds(uint16_t rpm)
+static void update_physical_ws2812_leds(uint16_t rpm, uint32_t now_ms)
 {
-	for (int i = 0; i < SHIFT_LEDS_COUNT; i++) {
-		bool on = (rpm >= s_shift_rpm_limits[i]);
+	if (strip_dev == NULL || !device_is_ready(strip_dev)) {
+		return;
+	}
 
-		if (i < 5) {
-			/* LEDs Verdes */
+	/* 1. LEDs Superiores 0..14 (Shift Lights) */
+	if (rpm >= SHIFT_BLINK_RPM) {
+		/* Limiar de troca: todas as 15 piscam em azul (~8 Hz) */
+		bool blue_on = ((now_ms / 60U) % 2U) == 0;
+
+		for (int i = 0; i < PHYSICAL_LEDS_TOP; i++) {
+			strip_pixels[i].r = 0;
+			strip_pixels[i].g = 0;
+			strip_pixels[i].b = blue_on ? 255 : 0;
+		}
+	} else {
+		for (int i = 0; i < PHYSICAL_LEDS_TOP; i++) {
+			bool on = (rpm >= s_shift_rpm_limits[i]);
+
+			if (i < 5) {
+				/* 5 Verdes */
+				strip_pixels[i].r = 0;
+				strip_pixels[i].g = on ? 220 : 0;
+				strip_pixels[i].b = 0;
+			} else if (i < 10) {
+				/* 5 Vermelhos */
+				strip_pixels[i].r = on ? 240 : 0;
+				strip_pixels[i].g = 0;
+				strip_pixels[i].b = 0;
+			} else {
+				/* 5 Roxos */
+				strip_pixels[i].r = on ? 160 : 0;
+				strip_pixels[i].g = 0;
+				strip_pixels[i].b = on ? 240 : 0;
+			}
+		}
+	}
+
+	/* 2. LEDs Laterais 15..20 (Bandeira Verde de Pista Livre em Fade 0..100%..0 em 2s) */
+	/* 15..17: Lateral Direita (baixo -> cima), 18..20: Lateral Esquerda (baixo -> cima) */
+	uint32_t phase = now_ms % 2000U;
+	uint32_t ramp = (phase < 1000U) ? phase : (2000U - phase); /* 0 a 1000 */
+	uint8_t green_fade = (uint8_t)((ramp * ramp * 255ULL) / (1000ULL * 1000ULL));
+
+	for (int i = PHYSICAL_LEDS_TOP; i < PHYSICAL_LEDS_TOTAL; i++) {
+		strip_pixels[i].r = 0;
+		strip_pixels[i].g = green_fade;
+		strip_pixels[i].b = 0;
+	}
+
+	led_strip_update_rgb(strip_dev, strip_pixels, PHYSICAL_LEDS_TOTAL);
+}
+
+static void update_shift_leds(uint16_t rpm, uint32_t now_ms)
+{
+	bool shift_blink = (rpm >= SHIFT_BLINK_RPM);
+	bool blue_on = ((now_ms / 60U) % 2U) == 0;
+
+	for (int i = 0; i < SHIFT_LEDS_COUNT; i++) {
+		if (shift_blink) {
+			/* Limiar de troca de marcha: todas piscam em azul */
 			lv_obj_set_style_bg_color(shift_leds[i],
-				on ? lv_color_hex(0x22C55E) : lv_color_hex(0x064E3B),
-				LV_PART_MAIN);
-		} else if (i < 10) {
-			/* LEDs Vermelhos */
-			lv_obj_set_style_bg_color(shift_leds[i],
-				on ? lv_color_hex(0xEF4444) : lv_color_hex(0x450A0A),
+				blue_on ? lv_color_hex(0x3B82F6) : lv_color_hex(0x0F172A),
 				LV_PART_MAIN);
 		} else {
-			/* LEDs Roxos */
-			lv_obj_set_style_bg_color(shift_leds[i],
-				on ? lv_color_hex(0xC084FC) : lv_color_hex(0x2E1065),
-				LV_PART_MAIN);
+			bool on = (rpm >= s_shift_rpm_limits[i]);
+
+			if (i < 5) {
+				/* LEDs Verdes */
+				lv_obj_set_style_bg_color(shift_leds[i],
+					on ? lv_color_hex(0x22C55E) : lv_color_hex(0x064E3B),
+					LV_PART_MAIN);
+			} else if (i < 10) {
+				/* LEDs Vermelhos */
+				lv_obj_set_style_bg_color(shift_leds[i],
+					on ? lv_color_hex(0xEF4444) : lv_color_hex(0x450A0A),
+					LV_PART_MAIN);
+			} else {
+				/* LEDs Roxos */
+				lv_obj_set_style_bg_color(shift_leds[i],
+					on ? lv_color_hex(0xC084FC) : lv_color_hex(0x2E1065),
+					LV_PART_MAIN);
+			}
 		}
 	}
 }
 
-static void update_dashboard_ui(const struct senna_telemetry_sample *sample)
+static void update_dashboard_ui(const struct senna_telemetry_sample *sample, uint32_t now_ms)
 {
 	/* 1. Marcha */
 	lv_label_set_text_fmt(gear_label, "%u", (unsigned int)sample->gear);
@@ -94,8 +168,9 @@ static void update_dashboard_ui(const struct senna_telemetry_sample *sample)
 		lv_obj_set_style_bg_color(rpm_bar, lv_color_hex(0x0284C7), LV_PART_INDICATOR);
 	}
 
-	/* 3. Shift LEDs */
-	update_shift_leds(sample->rpm);
+	/* 3. Shift LEDs na tela e LEDs fisicos WS2812D */
+	update_shift_leds(sample->rpm, now_ms);
+	update_physical_ws2812_leds(sample->rpm, now_ms);
 
 	/* 4. Tempo de volta cronometrado */
 	uint32_t t = sample->time_ms;
@@ -215,7 +290,7 @@ static void telemetry_timer_cb(lv_timer_t *timer)
 	}
 
 	senna_telemetry_update(elapsed, &sample);
-	update_dashboard_ui(&sample);
+	update_dashboard_ui(&sample, now);
 }
 
 static void start_lap_btn_cb(lv_event_t *e)
@@ -243,7 +318,7 @@ static void start_lap_btn_cb(lv_event_t *e)
 		/* Dispara amostragem inicial */
 		struct senna_telemetry_sample sample;
 		senna_telemetry_update(0U, &sample);
-		update_dashboard_ui(&sample);
+		update_dashboard_ui(&sample, anim_start_uptime_ms);
 	}
 }
 
@@ -285,7 +360,7 @@ static void build_cockpit_ui(void)
 		lv_obj_set_style_pad_all(shift_leds[i], 0, LV_PART_MAIN);
 		lv_obj_set_scrollbar_mode(shift_leds[i], LV_SCROLLBAR_MODE_OFF);
 	}
-	update_shift_leds(13950);
+	update_shift_leds(13950, k_uptime_get_32());
 
 	/* ------------------------------------------------------------------ */
 	/* PAINEL ESQUERDO (X=6, Y=18, W=214): Tracado de Interlagos          */
@@ -531,7 +606,7 @@ static void build_cockpit_ui(void)
 	/* Inicializa estado do display com amostra t=0 */
 	struct senna_telemetry_sample sample0;
 	senna_telemetry_sample_at(0U, &sample0);
-	update_dashboard_ui(&sample0);
+	update_dashboard_ui(&sample0, k_uptime_get_32());
 }
 
 int main(void)
@@ -548,6 +623,12 @@ int main(void)
 	LOG_INF("Display pronto: %ux%u (formato=0x%x)", caps.x_resolution, caps.y_resolution,
 		caps.current_pixel_format);
 
+	if (strip_dev && device_is_ready(strip_dev)) {
+		LOG_INF("Fita de LEDs WS2812D pronta (%d LEDs em GPIO17)!", PHYSICAL_LEDS_TOTAL);
+	} else {
+		LOG_WRN("Fita WS2812D nao pronta ou nao configurada!");
+	}
+
 	build_cockpit_ui();
 	lv_timer_handler();
 	display_blanking_off(display_dev);
@@ -556,6 +637,10 @@ int main(void)
 
 	while (1) {
 		uint32_t sleep_ms = lv_timer_handler();
+		uint32_t now = k_uptime_get_32();
+
+		/* Atualiza efeito de breathing dos LEDs laterais e shift lights */
+		update_physical_ws2812_leds((uint16_t)g_senna_telemetry_rpm, now);
 
 		k_msleep(MIN(sleep_ms, 15U));
 	}
